@@ -57,3 +57,15 @@ gradle :app:assembleDebug
 ```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
+
+
+## Google Play AAB
+
+The repository includes `.github/workflows/release-aab.yml`.
+
+Before running it, add these GitHub Actions secrets:
+- `KEYSTORE_BASE64`
+- `STORE_PASSWORD`
+- `KEY_PASSWORD`
+
+Never commit `my-upload-key.jks` to GitHub.
