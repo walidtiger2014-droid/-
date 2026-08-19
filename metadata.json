@@ -1,6 +1,0 @@
-{
-  "name": "أذكار المسلم",
-  "description": "تطبيق أذكار المسلم الشامل باللغة العربية مع الأذكار اليومية الموثوقة والسبحة الإلكترونية والتنبيهات والمفضلة بدون إنترنت",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
