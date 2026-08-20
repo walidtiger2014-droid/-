@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -22,42 +21,68 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.3.1'
+      - name: Check project files
+        run: |
+          echo "=== Project files ==="
+          ls -la
+          echo "=== Gradle files ==="
+          find . -maxdepth 2 -type f \( -name "gradlew" -o -name "settings.gradle*" -o -name "build.gradle*" \) -print
 
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > upload-keystore.jks
-          test -s upload-keystore.jks
-          echo "Keystore ready"
-
-      - name: Get keystore alias
-        env:
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-        run: |
-          ALIAS=$(keytool -list \
-            -keystore upload-keystore.jks \
-            -storepass "$STORE_PASSWORD" \
-            2>/dev/null \
-            | head -n 1 \
-            | cut -d',' -f1 \
-            | xargs)
-
-          if [ -z "$ALIAS" ]; then
-            echo "Could not find keystore alias"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "KEYSTORE_BASE64 secret is empty"
             exit 1
           fi
 
-          echo "KEY_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+          echo "$KEYSTORE_BASE64" | base64 --decode > upload-keystore.jks
+
+          if [ ! -s upload-keystore.jks ]; then
+            echo "Keystore file is empty"
+            exit 1
+          fi
+
+          echo "Keystore decoded successfully"
+
+      - name: Read keystore alias
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          KEY_ALIAS=$(keytool -list \
+            -keystore upload-keystore.jks \
+            -storepass "$STORE_PASSWORD" \
+            -v 2>/dev/null \
+            | grep -m 1 "Alias name:" \
+            | sed 's/.*Alias name:[[:space:]]*//')
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "ERROR: Could not find keystore alias"
+            echo "Check STORE_PASSWORD and KEYSTORE_BASE64"
+            exit 1
+          fi
+
+          echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
           echo "Keystore alias found"
+
+      - name: Make Gradle executable
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            echo "Using Gradle wrapper"
+          else
+            echo "ERROR: gradlew is missing from the project"
+            exit 1
+          fi
+
+      - name: Clean project
+        run: |
+          ./gradlew clean --no-daemon
 
       - name: Build Release AAB
         run: |
-          gradle bundleRelease
+          ./gradlew bundleRelease --no-daemon --stacktrace
 
       - name: Find AAB
         run: |
@@ -66,12 +91,14 @@ jobs:
             | head -n 1)
 
           if [ -z "$AAB" ]; then
-            echo "AAB file not found"
+            echo "ERROR: AAB file was not created"
             exit 1
           fi
 
+          echo "AAB found:"
+          echo "$AAB"
+
           echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
-          echo "Found: $AAB"
 
       - name: Sign AAB
         env:
@@ -90,8 +117,7 @@ jobs:
 
       - name: Verify AAB
         run: |
-          jarsigner -verify "$AAB_FILE"
-          echo "AAB signature verified successfully"
+          jarsigner -verify -verbose "$AAB_FILE"
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
