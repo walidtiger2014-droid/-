@@ -23,15 +23,11 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
- signingConfigs {
+signingConfigs {
     create("release") {
-        val keystorePath =
-            System.getenv("KEYSTORE_PATH")
-                ?: "${rootDir}/my-upload-key.jks"
-
-        storeFile = file(keystorePath)
+        storeFile = file("${rootDir}/upload-keystore.jks")
         storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyAlias = "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
     }
 
@@ -41,7 +37,7 @@ android {
         keyAlias = "androiddebugkey"
         keyPassword = "android"
     }
-} 
+}
 
   buildTypes {
     release {
