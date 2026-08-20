@@ -12,25 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) تحميل المشروع
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) إعداد Java 17
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      # 3) تثبيت Gradle مباشرة
-      #    لا نعتمد على ./gradlew
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.13"
+          gradle-version: "9.3.1"
 
-      # 4) فك تشفير ملف مفتاح التوقيع
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -51,7 +47,6 @@ jobs:
 
           echo "Keystore decoded successfully"
 
-      # 5) التأكد من أن كلمة مرور مخزن المفاتيح صحيحة
       - name: Check signing keystore
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -69,7 +64,6 @@ jobs:
 
           echo "Keystore password is correct"
 
-      # 6) التأكد أن Alias = upload موجود فعلًا
       - name: Check signing alias
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -81,9 +75,8 @@ jobs:
             -storepass "$STORE_PASSWORD" \
             -alias upload
 
-          echo "Alias 'upload' found successfully"
+          echo "Alias upload found successfully"
 
-      # 7) بناء AAB موقع
       - name: Build signed Release AAB
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
@@ -93,11 +86,10 @@ jobs:
         run: |
           set -e
 
-          echo "Starting signed Release AAB build..."
+          echo "Building signed Release AAB..."
 
           gradle clean bundleRelease --stacktrace
 
-      # 8) البحث عن ملف AAB
       - name: Find AAB
         run: |
           set -e
@@ -112,14 +104,12 @@ jobs:
             exit 1
           fi
 
-          echo "Found AAB:"
-          echo "$AAB_FILE"
+          echo "Found AAB: $AAB_FILE"
 
           mkdir -p release
 
           cp "$AAB_FILE" release/app-release.aab
 
-      # 9) التحقق من توقيع الـAAB
       - name: Verify AAB
         run: |
           set -e
@@ -130,7 +120,6 @@ jobs:
 
           echo "AAB signature verification completed"
 
-      # 10) رفع الـAAB كملف يمكن تحميله
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
