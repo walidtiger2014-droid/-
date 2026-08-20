@@ -35,9 +35,9 @@ jobs:
             exit 1
           fi
 
-          echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+          echo "$KEYSTORE_BASE64" | base64 --decode > upload-keystore.jks
 
-          if [ ! -s my-upload-key.jks ]; then
+          if [ ! -s upload-keystore.jks ]; then
             echo "ERROR: Keystore file is empty"
             exit 1
           fi
@@ -56,14 +56,13 @@ jobs:
           fi
 
           keytool -list \
-            -keystore my-upload-key.jks \
+            -keystore upload-keystore.jks \
             -storepass "$STORE_PASSWORD"
 
           echo "Keystore password is correct"
 
       - name: Build signed Release AAB
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: upload
@@ -91,7 +90,6 @@ jobs:
           echo "Found AAB: $AAB_FILE"
 
           mkdir -p release
-
           cp "$AAB_FILE" release/app-release.aab
 
       - name: Verify AAB
