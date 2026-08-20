@@ -12,30 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # 1) تحميل المشروع
       - name: Checkout
         uses: actions/checkout@v4
 
-
-      # 2) Java 17
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
-
-      # 3) إعداد Gradle 9.3.1
-      # Android Gradle Plugin 9.1.1 يحتاج Gradle 9.3.1 أو أحدث
       - name: Setup Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
 
-
-      # 4) فك ملف التوقيع
       - name: Decode signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -56,11 +46,10 @@ jobs:
 
           echo "Keystore decoded successfully"
 
-
-      # 5) التأكد أن مخزن المفاتيح يفتح
-      - name: Check signing keystore
+      - name: Verify signing keystore
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -e
 
@@ -69,27 +58,12 @@ jobs:
             exit 1
           fi
 
-          keytool -list \
-            -keystore my-upload-key.jks \
-            -storepass "$STORE_PASSWORD"
-
-          echo "Keystore password is correct"
-
-
-      # 6) التأكد من Alias = upload ومن كلمة مرور المفتاح
-      - name: Verify upload signing key
-        env:
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          set -e
-
           if [ -z "$KEY_PASSWORD" ]; then
             echo "ERROR: KEY_PASSWORD is missing"
             exit 1
           fi
 
-          echo "Checking signing alias: upload"
+          echo "Checking upload key..."
 
           keytool -list \
             -v \
@@ -100,8 +74,6 @@ jobs:
 
           echo "UPLOAD KEY VERIFIED SUCCESSFULLY"
 
-
-      # 7) بناء Release AAB موقّع
       - name: Build signed Release AAB
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
@@ -111,14 +83,15 @@ jobs:
         run: |
           set -e
 
+          echo "Using Gradle:"
+          gradle --version
+
           echo "Starting signed Release AAB build..."
 
           gradle clean bundleRelease --stacktrace
 
           echo "Release AAB build completed"
 
-
-      # 8) البحث عن ملف AAB
       - name: Find AAB
         run: |
           set -e
@@ -140,13 +113,11 @@ jobs:
 
           cp "$AAB_FILE" release/app-release.aab
 
-
-      # 9) التحقق من توقيع AAB
-      - name: Verify AAB signature
+      - name: Verify AAB
         run: |
           set -e
 
-          echo "Verifying AAB signature..."
+          echo "Verifying AAB..."
 
           jarsigner -verify \
             -verbose \
@@ -154,8 +125,6 @@ jobs:
 
           echo "AAB signature verified successfully"
 
-
-      # 10) رفع AAB كملف قابل للتحميل
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
