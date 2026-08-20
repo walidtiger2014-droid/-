@@ -1,4 +1,4 @@
- name: Build Release AAB
+name: Build Release AAB
 
 on:
   workflow_dispatch:
@@ -32,14 +32,12 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > upload-keystore.jks
           test -s upload-keystore.jks
-          echo "Keystore ready"
 
       - name: Get keystore alias
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
           export LC_ALL=C
-
           ALIAS=$(keytool -list -v \
             -keystore upload-keystore.jks \
             -storepass "$STORE_PASSWORD" 2>/dev/null \
@@ -53,42 +51,17 @@ jobs:
           fi
 
           echo "KEY_ALIAS=$ALIAS" >> "$GITHUB_ENV"
-          echo "Keystore alias found"
 
       - name: Build Release AAB
-        run: |
-          gradle bundleRelease --no-daemon
-
-      - name: Find AAB
-        run: |
-          AAB=$(find . -type f -path "*/build/outputs/bundle/release/*.aab" | head -n 1)
-
-          if [ -z "$AAB" ]; then
-            echo "AAB file not found"
-            exit 1
-          fi
-
-          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
-          echo "AAB found: $AAB"
-
-      - name: Sign AAB
         env:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          jarsigner \
-            -verbose \
-            -sigalg SHA256withRSA \
-            -digestalg SHA-256 \
-            -keystore upload-keystore.jks \
-            -storepass "$STORE_PASSWORD" \
-            -keypass "$KEY_PASSWORD" \
-            "$AAB_FILE" \
-            "$KEY_ALIAS"
-
-      - name: Verify AAB signature
-        run: |
-          jarsigner -verify "$AAB_FILE"
+          gradle bundleRelease \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/upload-keystore.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
@@ -96,4 +69,4 @@ jobs:
           name: release-aab
           path: |
             **/build/outputs/bundle/release/*.aab
-          if-no-files-found: error         
+          if-no-files-found: error
