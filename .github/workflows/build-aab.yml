@@ -46,26 +46,35 @@ jobs:
 
           echo "Keystore decoded successfully"
 
-      - name: Read keystore alias
+     - name: Read keystore alias
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
+          echo "Reading keystore..."
+
+          if [ ! -f upload-keystore.jks ]; then
+            echo "ERROR: upload-keystore.jks not found"
+            exit 1
+          fi
+
+          keytool -list \
+            -keystore upload-keystore.jks \
+            -storepass "$STORE_PASSWORD"
+
           KEY_ALIAS=$(keytool -list \
             -keystore upload-keystore.jks \
             -storepass "$STORE_PASSWORD" \
-            -v 2>/dev/null \
+            2>/dev/null \
             | grep -m 1 "Alias name:" \
             | sed 's/.*Alias name:[[:space:]]*//')
 
           if [ -z "$KEY_ALIAS" ]; then
-            echo "ERROR: Could not find keystore alias"
-            echo "Check STORE_PASSWORD and KEYSTORE_BASE64"
+            echo "ERROR: No keystore alias found"
             exit 1
           fi
 
           echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "Keystore alias found"
-
+          echo "Alias found successfully"
       - name: Make Gradle executable
         run: |
           if [ -f "./gradlew" ]; then
